@@ -33,7 +33,7 @@ with open(FILE_NAME) as f:
                     break
 
 print(line_leading_spaces)
-
+text = ''
 with open(FILE_NAME) as f:
     char_num = 0
     for line in f:
@@ -46,19 +46,25 @@ with open(FILE_NAME) as f:
                 # Position number of the digit of each line, plus it's length
                 char_num = line.find(line.split()[0]) + len(line.split()[0])
                 line_without_number = line[char_num + line_leading_spaces:]
-                print(line_without_number)
+                # print(line_without_number)
+                text += line_without_number
 
         # Line without a number
         else:
             # Found the end of a page
             if line[0] == '\x0c':
-                print(NEW_PAGE)
+                # print(NEW_PAGE)
                 line = line[1:]
+                text += NEW_PAGE
 
             if len(line) - len(line.lstrip(' ')) >= 1:
-                print(line[line_leading_spaces + char_num:])
+                # print(line[line_leading_spaces + char_num:])
+                text += line[line_leading_spaces + char_num:]
             else:
-                print(line)
+                # print(line)
+                text += line
+
+print(text)
 
 #                 if line_leading_spaces != 0:
 #                     if line_leading_spaces in dict_of_spaces:
