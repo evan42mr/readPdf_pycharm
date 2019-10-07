@@ -2,6 +2,8 @@ import re
 import pprint
 import operator
 
+NEW_PAGE = '----------------> new page <---------------\n'
+
 
 def remove_numbers(text):
     return re.sub(r'\d+', '', text)
@@ -48,6 +50,10 @@ with open(FILE_NAME) as f:
 
         # Line without a number
         else:
+            # Found the end of a page
+            if line[0] == '\x0c':
+                print(NEW_PAGE)
+                line = line[1:]
 
             if len(line) - len(line.lstrip(' ')) >= 1:
                 print(line[line_leading_spaces + char_num:])
