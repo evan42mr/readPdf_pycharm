@@ -38,12 +38,13 @@ with open(FILE_NAME) as f:
 text = ''
 
 with open(FILE_NAME) as f:
+    # length of the number character on a line
     char_num = 2
     count = 0
     lst_line = []
     for i, line in enumerate(f):
 
-        #         if i > 320:
+        #         if i > 81:
         #             count += 1
         #             lst_line.append(line)
         #         if count == 15:
@@ -60,7 +61,7 @@ with open(FILE_NAME) as f:
         if line.strip() and (line[0].isdigit() or line[1].isdigit()) \
                 and line.find('......') == -1 \
                 and line.split()[0].isdigit():  # Found a line with the number at the beginning
-
+            # print(f"line if: {line}")
             # Slice the line so the sentence starts after the number
             # Discard if the line is empty
 
@@ -69,8 +70,14 @@ with open(FILE_NAME) as f:
                 char_num = line.find(line.split()[0]) + len(line.split()[0])
 
             line_without_number = line[char_num + line_leading_spaces:]
-            # print(line_without_number)
-            text += line_without_number
+
+            # When concatenate '\n' to a string it just concatenate ''
+            # Thus we check if line is empty or == ''
+            # If line is empty, thus == ''
+            if not line_without_number.strip():
+                text += '\n'
+            else:
+                text += line_without_number
         else:
 
             # Find leading spaces of the current string are
