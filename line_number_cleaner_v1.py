@@ -93,14 +93,3 @@ with open(FILE_NAME) as f:
                 text += line
 
 print(text)
-# print(lst_line)
-
-# TODO:
-"""
-Update the code so it preserves the empty lines,
-instead of removing them 
-"""
-
-
-
-
