@@ -4,6 +4,7 @@ import operator
 import pprint
 from difflib import SequenceMatcher
 
+pp = pprint.PrettyPrinter(indent=4)
 NEW_PAGE = '----------------> new page <---------------\n'
 
 """
@@ -199,7 +200,7 @@ def count_pgbrk_borders(file_name):
     # before and after pgdrk
     lines_before_pgbrk = 0
     lines_after_pgbrk = 0
-    threshold = 0.93
+    threshold = 0.9
 
     # lines before pgbrk
     for i in range(int((window_size / 2) - 2), -1, -1):
@@ -219,26 +220,138 @@ def count_pgbrk_borders(file_name):
     return lines_before_pgbrk, lines_after_pgbrk
 
 
-# TODO:
-#  Implement a method to retrieve a text without content table
-# and then put it to a count_pgbrk_borders
-# then look at the results for Shipyeard as it has the most bias result
+"""
+Function deletes lines before and after page_breaker
+and prints the rest of the text.
+
+It seems to be not reasonable to open original file again,
+rather than use a cleaned text, but when we clean text all 
+special characters like '\n' get disappeared 
+"""
+
+
+def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size=5):
+    counter_lines_after_pgbrk = window_size
+    # 5 is added to make a window size bigger
+    # to cover possible empty lines
+    line_window_size = (lines_before_pgbrk + window_size) + (window_size)
+
+    pgbrk = False
+
+    multiple_lines_text = []
+    count = 0
+    text = ''
+
+    with open(file_name) as f:
+        for i, line in enumerate(f):
+            count += 1
+            multiple_lines_text.append(line)
+
+            # print the first element in a list
+            if count > line_window_size:
+                text += multiple_lines_text.pop(0)
+
+                # Found the end of a page
+            if line[0] == '\x0c':
+                pgbrk = True
+
+            if pgbrk:
+                if counter_lines_after_pgbrk > 0:
+                    counter_lines_after_pgbrk -= 1
+                elif counter_lines_after_pgbrk <= 0:
+
+                    # String to save pg_breaker
+                    #                     if lines_before_pgbrk <= 0:
+                    #                         idx_pgbrk = window_size - 1
+                    #                     else:
+                    #                         idx_pgbrk = lines_before_pgbrk + window_size
+                    for i, line in enumerate(multiple_lines_text):
+                        if line[0] == '\x0c':
+                            idx_pgbrk = i
+
+                    # Slicing the list in front and back sides
+                    front_window = multiple_lines_text[:idx_pgbrk - lines_before_pgbrk]
+                    if lines_after_pgbrk <= 0:
+                        back_window = multiple_lines_text[idx_pgbrk + lines_after_pgbrk:]
+                    else:
+                        back_window = multiple_lines_text[idx_pgbrk + lines_after_pgbrk + 1:]
+
+                    #                     print(f"\nmultiple_lines_text = {multiple_lines_text}\n")
+                    #                     print(f"idx_pgbrk = {idx_pgbrk}, lines_before_pgbrk = {lines_before_pgbrk}, lines_after_pgbrk = {lines_after_pgbrk}")
+                    #                     print(f"front_window: {front_window}")
+                    #                     print(f"back_window: {back_window}")
+
+                    #                     if i > 331:
+                    #                         break
+                    # Remove empty lines from the front window side
+                    for i in range(len(front_window)):
+                        if front_window[-1] == '\n':
+                            front_window.pop()
+                        else:
+                            break
+
+                    # Remove empty lines from the back window size
+                    for i in range(len(back_window)):
+                        if back_window[0] == '\n':
+                            back_window.pop(0)
+                        else:
+                            break
+
+                    # Check if the back window needs '\n'
+                    if front_window and back_window and \
+                            front_window[- 1][-1] != ',' and front_window[- 1][-1] != ',' and \
+                            back_window[0][0].isupper():
+                        back_window.insert(0, '\n')
+
+                    front_window.append(NEW_PAGE)
+                    remained_window_list = front_window + back_window
+                    remained_window_text = ''
+
+                    for line in remained_window_list:
+                        remained_window_text += line
+
+                    text += remained_window_text
+
+                    # reset the vars
+                    multiple_lines_text = []
+                    pgbrk = False
+                    counter_lines_after_pgbrk = window_size
+                    count = 0
+
+    # Get remained lines in a sliding window
+    idx_pgbrk_remained = 0
+
+    # Find a pgbrk index in list of a remained sliding window
+    for i, line in enumerate(multiple_lines_text):
+        if line[0] == '\x0c':
+            idx_pgbrk_remained = i
+
+    idx_pgbrk_remained -= lines_before_pgbrk
+
+    while idx_pgbrk_remained >= 0:
+        text += multiple_lines_text.pop(0)
+        idx_pgbrk_remained -= 1
+
+    # print(text)
+    return text
+
 
 # FILE_NAME = 'ABB1F.txt'
-FILE_NAME = 'Shipyard.txt'
+# FILE_NAME = 'Shipyard.txt'
 
-cleaned_text = remove_numbers(FILE_NAME)
+# cleaned_text = remove_numbers(FILE_NAME)
 # ----------------------------------------
 
 # FILE_NAME = 'KOGAS -2449.txt'
-# FILE_NAME = 'ON -2462.txt'
+FILE_NAME = 'ON -2462.txt'
+
 cleaned_text = clean_file_without_numbers(FILE_NAME)
 
-content_table, tab_end_line = extract_content_table(cleaned_text)
+# content_table, tab_end_line = extract_content_table(cleaned_text)
 
-text_without_content_table = ''
+lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
 
-count_pgbrk_borders(cleaned_text)
-
+print(count_pgbrk_borders(cleaned_text))
+print(sliding_window(lines_before_pgbrk, lines_after_pgbrk, FILE_NAME))
 # pp = pprint.PrettyPrinter(indent=4)
 # pp.pprint(content_table)
