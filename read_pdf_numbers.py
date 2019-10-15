@@ -6,6 +6,10 @@ from difflib import SequenceMatcher
 
 NEW_PAGE = '----------------> new page <---------------\n'
 
+"""
+Removes number lines from pdf file
+"""
+
 
 def remove_numbers(FILE_NAME):
     dict_of_spaces = {}
@@ -27,7 +31,6 @@ def remove_numbers(FILE_NAME):
                     # Stopping condition is the first line with a number
                     if line_without_number.strip():
                         break
-
     text = ''
 
     with open(FILE_NAME) as f:
@@ -78,6 +81,7 @@ def remove_numbers(FILE_NAME):
     return text
 
 
+# Retrieve a content table from a text
 def extract_content_table(text):
     # Number of the line where table of contents ends
     tab_end_line = 0
@@ -113,6 +117,12 @@ def extract_content_table(text):
     return lst_idx_tab, tab_end_line
 
 
+"""
+Change pgbrk to a 'NEW_LINE' mark for files
+without line numbers
+"""
+
+
 def clean_file_without_numbers(FILE_NAME):
     text = ''
     with open(FILE_NAME) as f:
@@ -133,6 +143,8 @@ def mean(a):
     return sum(a) / len(a)
 
 
+# Return statistics about which lines of a pgbrk
+# should be removed.
 def count_pgbrk_borders(file_name):
     pagebrk = ''
     list_of_pgbrk = []
@@ -149,24 +161,25 @@ def count_pgbrk_borders(file_name):
 
         # Create a window
         temp_window.append(line)
-
+        # Sliding through a text lines
         if len(temp_window) > window_size:
             temp_window.pop(0)
 
             # Identify page breaker
         if line == NEW_PAGE.strip():
             pgbrk = True
-
-        if lines_after_pgbrk >= 5:
+        # Put a window with lines including pgbrk to a list
+        if lines_after_pgbrk >= window_size / 2:
             list_of_pgbrk.append(temp_window)
 
             lines_after_pgbrk = 0
             pgbrk = False
             temp_window = []
 
-        if pgbrk and lines_after_pgbrk < 6:
+        if pgbrk and lines_after_pgbrk < (window_size / 2) + 1:
             lines_after_pgbrk += 1
 
+    # pgbrk to compate all other pgbrks in a text
     testing_pgbrk = list_of_pgbrk[int(len(list_of_pgbrk) / 2)]
 
     list_of_statistics = []
@@ -179,8 +192,31 @@ def count_pgbrk_borders(file_name):
 
         list_of_statistics.append(item_stats)
 
-    print(list_of_pgbrk[2])
-    print(list(map(mean, zip(*list_of_statistics))))
+    # Return a list of stats
+    stats_vals = list(map(mean, zip(*list_of_statistics)))
+    round_stats_vals = ['%.2f' % elem for elem in stats_vals]
+
+    # before and after pgdrk
+    lines_before_pgbrk = 0
+    lines_after_pgbrk = 0
+    threshold = 0.93
+
+    # lines before pgbrk
+    for i in range(int((window_size / 2) - 2), -1, -1):
+        if float(round_stats_vals[i]) > threshold:
+            lines_before_pgbrk += 1
+        else:
+            break
+
+    # lines after pgbrk
+
+    for i in range(int((window_size / 2) + 1), len(round_stats_vals)):
+        if float(round_stats_vals[i]) > threshold:
+            lines_after_pgbrk += 1
+        else:
+            break
+
+    return lines_before_pgbrk, lines_after_pgbrk
 
 
 # TODO:
@@ -196,7 +232,7 @@ cleaned_text = remove_numbers(FILE_NAME)
 
 # FILE_NAME = 'KOGAS -2449.txt'
 # FILE_NAME = 'ON -2462.txt'
-# cleaned_text = clean_file_without_numbers(FILE_NAME)
+cleaned_text = clean_file_without_numbers(FILE_NAME)
 
 content_table, tab_end_line = extract_content_table(cleaned_text)
 
