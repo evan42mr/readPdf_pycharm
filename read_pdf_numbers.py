@@ -7,12 +7,17 @@ from difflib import SequenceMatcher
 pp = pprint.PrettyPrinter(indent=4)
 NEW_PAGE = '----------------> new page <---------------\n'
 
+
+def remove_numbers(text):
+    return re.sub(r'\d+', '', text)
+
+
 """
 Removes number lines from pdf file
 """
 
 
-def remove_numbers(FILE_NAME):
+def remove_line_numbers(FILE_NAME):
     dict_of_spaces = {}
     lst_spaces = []
 
@@ -82,49 +87,13 @@ def remove_numbers(FILE_NAME):
     return text
 
 
-# Retrieve a content table from a text
-def extract_content_table(text):
-    # Number of the line where table of contents ends
-    tab_end_line = 0
-    # Flag for the start of the table of contents
-    tabStart = False
-    # Flag for the end of the table of contents
-    tabEnd = False
-    # Count lines after expected end of the table of contents
-    cnt_lines_after_expected_end = 0
-
-    lst_idx_tab = []
-    for i, line in enumerate(text.splitlines()):
-
-        count_dots = 0
-        temp_line = ''
-
-        found_content_item = line.find('..........')
-
-        if not tabEnd and found_content_item != -1:
-            tab_end_line = i
-            if not tabStart:
-                tabStart = True
-
-            lst_idx_tab.append(line[:found_content_item])
-            cnt_lines_after_expected_end = 0
-
-        if tabStart and not tabEnd and found_content_item == -1:
-            cnt_lines_after_expected_end += 1
-            if cnt_lines_after_expected_end > 5:
-                tabEnd = True
-                break
-
-    return lst_idx_tab, tab_end_line
-
-
 """
 Change pgbrk to a 'NEW_LINE' mark for files
 without line numbers
 """
 
 
-def clean_file_without_numbers(FILE_NAME):
+def clean_file_without_line_numbers(FILE_NAME):
     text = ''
     with open(FILE_NAME) as f:
         for line in f:
@@ -336,22 +305,205 @@ def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size
     return text
 
 
-# FILE_NAME = 'ABB1F.txt'
-# FILE_NAME = 'Shipyard.txt'
+def find_titles(text_without_pgbrk, idx_tab, line_num, tab_end_line):
+    count_line = 0
+    current_title = ''
+    lst_lines = []
+    page_cnt = 1
 
-# cleaned_text = remove_numbers(FILE_NAME)
+    # Last sentence is needed to store the last read line
+    # to track if it is a not finished sentence of not
+    last_line = ''
+
+    for i, line in enumerate(text_without_pgbrk.splitlines()):
+
+        # print(f"line: [{line}]")
+
+        if line == NEW_PAGE.strip():
+            # print("new page")
+            page_cnt += 1
+            continue
+        if i > line_num and i > tab_end_line:
+            if idx_tab and \
+                    ' '.join(remove_numbers(line).split()).strip().upper() == \
+                    ' '.join(remove_numbers(idx_tab[0]).split()).strip().upper():
+
+                # Print lines under the previous paragraph
+                if lst_lines:
+                    # Print lines
+                    read_lines_from_lst_lines(lst_lines)
+                    lst_lines = []
+
+                #                 sql = "INSERT INTO on_2462 (par_text, is_title, page) VALUES (%s,%s,%s)"
+                #                 val = (line, True, page_cnt)
+                #                 mycursor.execute(sql, val)
+                #                 mydb.commit()
+
+                print(f"title: [{line}]")
+                current_title = idx_tab.pop(0)
+                count_line = i
+            else:
+                if current_title != '':
+                    # If new paragraph
+                    if not line.strip():
+                        # If lst_lines is not an empty list
+                        if lst_lines:
+                            #                             # Check if the line end with '\n' and before it has islower()
+                            #                             # (Ex: and\n), means that the next line should be concatenated
+                            #                             if line and line[-1] == '\n' and line[line.find('\n') - 1].islower():
+                            #                                 line = line[:line.find('\n')]
+                            #                                 lst_lines.append(line)
+                            if (last_line and last_line.split()[-1][-1] == ','):
+                                lst_lines.append(line)
+                            elif last_line and last_line.split()[-1][-1] == ':':
+                                if line:
+                                    lst_lines.append('\n')
+                                    lst_lines.append(line)
+                                else:
+                                    continue
+
+                            else:
+                                inner_last_line = ''
+                                # Print lines
+                                read_lines_from_lst_lines(lst_lines)
+
+                                lst_lines = []
+
+                    else:
+                        lst_lines.append(line)
+
+        last_line = line
+    #     mycursor.close()
+    #     mydb.close()
+    return count_line
+
+
+def read_lines_from_lst_lines(lst_lines):
+    text = ''
+    bullet_point = False
+    for line in lst_lines:
+        # Write the first line
+        if text == '':
+            text += line
+        else:
+            # Count spaces between words
+            count_spaces = 0
+            tokens = re.findall('\s+', line)
+            for i in range(0, len(tokens)):
+                # Count the max soace in the line
+                if len(tokens[i]) > count_spaces:
+                    count_spaces = len(tokens[i])
+            # Check if the line is a bullet point or a table raw
+            if count_spaces > 1:
+                text = text + '\n' + line
+                bullet_point = True
+            else:
+                # Check for the last line of the bullet point
+                if bullet_point:
+                    text = text + '\n' + line
+                    bullet_point = False
+                else:
+                    #  Check if line is a title
+                    count_words = 0
+                    count_upper = 0
+
+                    for i in (line.strip()).split():
+                        count_words += 1
+                        if i[0].isupper():
+                            count_upper += 1
+
+                    # If line has less then 7 words
+                    # Good chances it is a title if
+                    # percentage of words starting with capital letter
+                    # is equal or higher then 70%
+                    if count_words > 0 and count_words < 7 \
+                            and (100 / count_words) * count_upper >= 70 \
+                            and (line.strip()).split()[-1][-1] != '.':
+                        print(f"Discovered title {line}")
+                        text = text + '\n' + line + '\n'
+                    else:
+                        text = text + ' ' + line
+
+    print("text:")
+    print(text)
+
+
+#                             sql = "INSERT INTO on_2462 (par_text, is_title, page) VALUES (%s,%s,%s)"
+#                             val = (text, False, page_cnt)
+#                             mycursor.execute(sql, val)
+#                             mydb.commit()
+
+
+# Retrieve a content table from a text
+def extract_content_table(text):
+    # Number of the line where table of contents ends
+    tab_end_line = 0
+    # Flag for the start of the table of contents
+    tabStart = False
+    # Flag for the end of the table of contents
+    tabEnd = False
+    # Count lines after expected end of the table of contents
+    cnt_lines_after_expected_end = 0
+
+    lst_idx_tab = []
+
+    line_counter = 0
+    for i, line in enumerate(text.splitlines()):
+
+        line_counter += 1
+        count_dots = 0
+        temp_line = ''
+
+        found_content_item = line.find('..........')
+
+        if not tabEnd and found_content_item != -1:
+            tab_end_line = i
+
+            if not tabStart:
+                tabStart = True
+
+            lst_idx_tab.append(line[:found_content_item])
+            cnt_lines_after_expected_end = 0
+
+        if tabStart and not tabEnd and found_content_item == -1:
+            cnt_lines_after_expected_end += 1
+            if cnt_lines_after_expected_end > 20:
+                tabEnd = True
+                break
+
+    return lst_idx_tab, tab_end_line
+
+
+# FILE_NAME = 'ABB1F.txt'
+FILE_NAME = 'Shipyard.txt'
+
+# cleaned_text = remove_line_numbers(FILE_NAME)
 # ----------------------------------------
 
 # FILE_NAME = 'KOGAS -2449.txt'
-FILE_NAME = 'ON -2462.txt'
+# FILE_NAME = 'ON -2462.txt'
 
-cleaned_text = clean_file_without_numbers(FILE_NAME)
-
-# content_table, tab_end_line = extract_content_table(cleaned_text)
+cleaned_text = clean_file_without_line_numbers(FILE_NAME)
 
 lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
 
-print(count_pgbrk_borders(cleaned_text))
-print(sliding_window(lines_before_pgbrk, lines_after_pgbrk, FILE_NAME))
-# pp = pprint.PrettyPrinter(indent=4)
-# pp.pprint(content_table)
+text_without_pgbrk = sliding_window(lines_before_pgbrk, lines_after_pgbrk, FILE_NAME)
+
+content_table, tab_end_line = extract_content_table(text_without_pgbrk)
+
+line_num = 0
+find_titles(text_without_pgbrk, content_table, line_num, tab_end_line)
+
+lst_not_found_titles = []
+while content_table:
+    line_num = find_titles(cleaned_text, content_table, line_num, tab_end_line)
+    if content_table:
+        lst_not_found_titles.append(content_table.pop(0))
+
+print('\n\n')
+if not lst_not_found_titles:
+    print("--------- Process is done ---------")
+else:
+    print("--------- Something went wrong! ---------")
+    print(f"There are still {len(lst_not_found_titles)} element to search")
+    print(lst_not_found_titles) 
