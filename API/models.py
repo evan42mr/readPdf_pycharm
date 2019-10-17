@@ -3,11 +3,13 @@ from sqlalchemy import Column,Integer,String,Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
-
+import app
 
 Base = declarative_base()
 class DsmeText(Base):
-  __tablename__ = 'kogas_2449'
+
+  __tablename__ = app.table_name
+  # __tablename__ = 'kogas_2449'
   id = Column(Integer, primary_key = True)
   par_text = Column(Text)
   is_title = Column(Boolean)
