@@ -24,7 +24,8 @@ mydb = mariadb.connect(
 def read_all(file_name):
     try:
         cursor = mydb.cursor()
-        sql = "SELECT * FROM " + file_name
+        # sql = "SELECT * FROM " + file_name
+        sql = "SELECT * FROM %s" % (file_name,)
         cursor.execute(sql)
         rows = cursor.fetchall()
 
