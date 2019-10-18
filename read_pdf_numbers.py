@@ -522,8 +522,13 @@ def main(argv):
 
     #----------------------------------------
 
-    # FILE_NAME = 'ABB1F.txt'
-    # FILE_NAME = 'Shipyard.txt'
+    # # file_name_txt = 'ABB1F.txt'
+    # file_name_txt = 'Shipyard.txt'
+    # # file_name_txt = 'KOGAS -2449.txt'
+    # # file_name_txt = 'ON -2462.txt'
+    # file_name_without_extension = file_name_txt.split('.txt', 1)[0]
+    #
+    # line_number_flag = 'True'
 
     if line_number_flag == 'True':
         cleaned_text = remove_line_numbers(file_name_txt)
@@ -531,8 +536,7 @@ def main(argv):
         cleaned_text = clean_file_without_line_numbers(file_name_txt)
     # ----------------------------------------
 
-    # FILE_NAME = 'KOGAS -2449.txt'
-    # FILE_NAME = 'ON -2462.txt'
+
 
     # cleaned_text = clean_file_without_line_numbers(FILE_NAME)
 
@@ -542,12 +546,14 @@ def main(argv):
 
     content_table, tab_end_line = extract_content_table(text_without_pgbrk)
 
+    # print(text_without_pgbrk)
+
     line_num = 0
     find_titles(file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
 
     lst_not_found_titles = []
     while content_table:
-        line_num = find_titles(file_name_without_extension, cleaned_text, content_table, line_num, tab_end_line)
+        line_num = find_titles(file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
         if content_table:
             lst_not_found_titles.append(content_table.pop(0))
 
