@@ -1,16 +1,52 @@
+import json
 import re
-import pprint
-import operator
+import sys
+import os
+import string
 import pprint
 from difflib import SequenceMatcher
+import subprocess
+import mysql.connector as mariadb
+
+# Connect to mariadb
+with open('./API/config.json') as f:
+    config_dict = json.loads(f.read())
+# print(config_dict)
+db_id = config_dict['data_base']['db_id']
+pw = config_dict['data_base']['pw']
+ip = config_dict['data_base']['ip']
+data_base = config_dict['data_base']['data_base']
+
+mydb = mariadb.connect(
+    host=ip,
+    user=db_id,
+    passwd=pw,
+    database=data_base
+)
+
+cursor = mydb.cursor()
 
 pp = pprint.PrettyPrinter(indent=4)
 NEW_PAGE = '----------------> new page <---------------\n'
 
+ASSERT_MESSAGE = '\n There should be given 2 arguments\
+                  \n 1) file_name\
+                  \n 2) line_numbers (True or False)'
 
 def remove_numbers(text):
     return re.sub(r'\d+', '', text)
 
+def remove_between_square_brackets(text):
+    return re.sub('\[[^]]*\]', '', text)
+
+def remove_betweem_brackets(text):
+    return re.sub('.*?\((.*?)\)', '', text)
+
+def remove_punctuation(text):
+    return text.translate(str.maketrans('','',string.punctuation))
+
+def remove_all_spaces(text):
+    return text.replace(' ', '-')
 
 """
 Removes number lines from pdf file
@@ -305,7 +341,7 @@ def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size
     return text
 
 
-def find_titles(text_without_pgbrk, idx_tab, line_num, tab_end_line):
+def find_titles(file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line):
     count_line = 0
     current_title = ''
     lst_lines = []
@@ -331,13 +367,13 @@ def find_titles(text_without_pgbrk, idx_tab, line_num, tab_end_line):
                 # Print lines under the previous paragraph
                 if lst_lines:
                     # Print lines
-                    read_lines_from_lst_lines(lst_lines)
+                    read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt)
                     lst_lines = []
 
-                #                 sql = "INSERT INTO on_2462 (par_text, is_title, page) VALUES (%s,%s,%s)"
-                #                 val = (line, True, page_cnt)
-                #                 mycursor.execute(sql, val)
-                #                 mydb.commit()
+                sql = "INSERT INTO dsme_tender_spec_2019 (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
+                val = (line, True, page_cnt, file_name_without_extension)
+                cursor.execute(sql, val)
+                mydb.commit()
 
                 print(f"title: [{line}]")
                 current_title = idx_tab.pop(0)
@@ -365,7 +401,7 @@ def find_titles(text_without_pgbrk, idx_tab, line_num, tab_end_line):
                             else:
                                 inner_last_line = ''
                                 # Print lines
-                                read_lines_from_lst_lines(lst_lines)
+                                read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt)
 
                                 lst_lines = []
 
@@ -378,7 +414,7 @@ def find_titles(text_without_pgbrk, idx_tab, line_num, tab_end_line):
     return count_line
 
 
-def read_lines_from_lst_lines(lst_lines):
+def read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt):
     text = ''
     bullet_point = False
     for line in lst_lines:
@@ -428,10 +464,10 @@ def read_lines_from_lst_lines(lst_lines):
     print(text)
 
 
-#                             sql = "INSERT INTO on_2462 (par_text, is_title, page) VALUES (%s,%s,%s)"
-#                             val = (text, False, page_cnt)
-#                             mycursor.execute(sql, val)
-#                             mydb.commit()
+    sql = "INSERT INTO dsme_tender_spec_2019 (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
+    val = (text, False, page_cnt, file_name_without_extension)
+    cursor.execute(sql, val)
+    mydb.commit()
 
 
 # Retrieve a content table from a text
@@ -451,8 +487,6 @@ def extract_content_table(text):
     for i, line in enumerate(text.splitlines()):
 
         line_counter += 1
-        count_dots = 0
-        temp_line = ''
 
         found_content_item = line.find('..........')
 
@@ -473,37 +507,70 @@ def extract_content_table(text):
 
     return lst_idx_tab, tab_end_line
 
+def main(argv):
+    assert len(argv) == 3, ASSERT_MESSAGE
 
-# FILE_NAME = 'ABB1F.txt'
-FILE_NAME = 'Shipyard.txt'
+    # pdf file name
+    FILE_NAME = argv[1]
+    line_number_flag = argv[2]
 
-# cleaned_text = remove_line_numbers(FILE_NAME)
-# ----------------------------------------
+    # Used to name a table in a database
+    file_name_without_extension = FILE_NAME.split('.pdf',1)[0]
+    # Same file but with .txt format
+    file_name_txt = file_name_without_extension + '.txt'
+    subprocess.call(["pdftotext", "-layout", FILE_NAME, file_name_txt])
 
-# FILE_NAME = 'KOGAS -2449.txt'
-# FILE_NAME = 'ON -2462.txt'
+    #----------------------------------------
 
-cleaned_text = clean_file_without_line_numbers(FILE_NAME)
+    # FILE_NAME = 'ABB1F.txt'
+    # FILE_NAME = 'Shipyard.txt'
 
-lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
+    if line_number_flag == 'True':
+        cleaned_text = remove_line_numbers(file_name_txt)
+    else:
+        cleaned_text = clean_file_without_line_numbers(file_name_txt)
+    # ----------------------------------------
 
-text_without_pgbrk = sliding_window(lines_before_pgbrk, lines_after_pgbrk, FILE_NAME)
+    # FILE_NAME = 'KOGAS -2449.txt'
+    # FILE_NAME = 'ON -2462.txt'
 
-content_table, tab_end_line = extract_content_table(text_without_pgbrk)
+    # cleaned_text = clean_file_without_line_numbers(FILE_NAME)
 
-line_num = 0
-find_titles(text_without_pgbrk, content_table, line_num, tab_end_line)
+    lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
 
-lst_not_found_titles = []
-while content_table:
-    line_num = find_titles(cleaned_text, content_table, line_num, tab_end_line)
-    if content_table:
-        lst_not_found_titles.append(content_table.pop(0))
+    text_without_pgbrk = sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name_txt)
 
-print('\n\n')
-if not lst_not_found_titles:
-    print("--------- Process is done ---------")
-else:
-    print("--------- Something went wrong! ---------")
-    print(f"There are still {len(lst_not_found_titles)} element to search")
-    print(lst_not_found_titles) 
+    content_table, tab_end_line = extract_content_table(text_without_pgbrk)
+
+    line_num = 0
+    find_titles(file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
+
+    lst_not_found_titles = []
+    while content_table:
+        line_num = find_titles(file_name_without_extension, cleaned_text, content_table, line_num, tab_end_line)
+        if content_table:
+            lst_not_found_titles.append(content_table.pop(0))
+
+    print('\n\n')
+    if not lst_not_found_titles:
+        print("--------- Process is done ---------")
+    else:
+        print("--------- Something went wrong! ---------")
+        print(f"There are {len(lst_not_found_titles)} title(s) that were not identified as title, instead included as a text")
+        print(lst_not_found_titles)
+
+if __name__ == '__main__':
+    main(sys.argv)
+
+    # file_name = '2.2.4_Shipyard_ITT_Attachment.pdf'
+    # file_name_txt = file_name.split('.pdf',1)[0] + '.txt'
+    #     # print(file_name_txt)
+    # subprocess.call(["pdftotext", "-layout", file_name, file_name_txt])
+    #
+    # with open(file_name_txt) as f:
+    #     for line in f:
+    #         print(line)
+
+
+    # cmd = 'pdftotext -layout' + ' ' + file_name + ' ' + output_file
+    # os.system(cmd)

@@ -1,0 +1,8 @@
+{
+  "data_base": {
+    "db_id": "dev",
+    "pw": "424242",
+    "ip": "192.168.0.230",
+    "data_base": "dsme_phase2"
+  }
+}

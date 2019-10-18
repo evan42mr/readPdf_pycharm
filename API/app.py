@@ -8,17 +8,27 @@ from sqlalchemy.orm import sessionmaker
 from flask import flash, request
 from flask import Flask
 import mysql.connector as mariadb
+from flask_cors import CORS
+
+with open('config.json') as f:
+    config_dict = json.loads(f.read())
+
+db_id = config_dict['data_base']['db_id']
+pw = config_dict['data_base']['pw']
+ip = config_dict['data_base']['ip']
+data_base = config_dict['data_base']['data_base']
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/readAll/<string:file_name>',  methods=['GET'])
 def read_all(file_name):
     try:
         mydb = mariadb.connect(
-            host="192.168.0.230",
-            user="dev",
-            passwd="424242",
-            database="dsme_phase2"
+            host=ip,
+            user=db_id,
+            passwd=pw,
+            database=data_base
         )
         cursor = mydb.cursor()
         # sql = "SELECT * FROM " + file_name
