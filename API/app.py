@@ -11,18 +11,15 @@ import mysql.connector as mariadb
 
 app = Flask(__name__)
 
-
-
-mydb = mariadb.connect(
-  host="192.168.0.230",
-  user="dev",
-  passwd="424242",
-  database="dsme_phase2"
-)
-
 @app.route('/readAll/<string:file_name>',  methods=['GET'])
 def read_all(file_name):
     try:
+        mydb = mariadb.connect(
+            host="192.168.0.230",
+            user="dev",
+            passwd="424242",
+            database="dsme_phase2"
+        )
         cursor = mydb.cursor()
         # sql = "SELECT * FROM " + file_name
         sql = "SELECT * FROM %s" % (file_name,)
@@ -44,6 +41,7 @@ def read_all(file_name):
         print(e)
     finally:
         cursor.close()
+        mydb.close()
 
 
 
