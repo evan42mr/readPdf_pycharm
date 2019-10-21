@@ -111,7 +111,7 @@ def read_all():
 
 if __name__ == '__main__':
     app.debug = True
-    app.run(host='0.0.0.0', port=6006)
+    app.run(host='0.0.0.0', port=6001)
 
 # # To load json to a dictionary
 # json.loads
