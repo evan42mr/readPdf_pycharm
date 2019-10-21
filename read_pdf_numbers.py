@@ -7,6 +7,8 @@ import pprint
 from difflib import SequenceMatcher
 import subprocess
 import mysql.connector as mariadb
+from datetime import date
+import time
 
 # Connect to mariadb
 with open('./API/config.json') as f:
@@ -24,7 +26,6 @@ mydb = mariadb.connect(
     database=data_base
 )
 
-cursor = mydb.cursor()
 
 pp = pprint.PrettyPrinter(indent=4)
 NEW_PAGE = '----------------> new page <---------------\n'
@@ -48,6 +49,8 @@ def remove_punctuation(text):
 def remove_all_spaces(text):
     return text.replace(' ', '-')
 
+def remove_selected_punctuation(text):
+    return re.sub(r"[\\()'\,\"]",'',text)
 """
 Removes number lines from pdf file
 """
@@ -341,7 +344,7 @@ def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size
     return text
 
 
-def find_titles(file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line):
+def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line):
     count_line = 0
     current_title = ''
     lst_lines = []
@@ -367,15 +370,18 @@ def find_titles(file_name_without_extension, text_without_pgbrk, idx_tab, line_n
                 # Print lines under the previous paragraph
                 if lst_lines:
                     # Print lines
-                    read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt)
+                    read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt)
                     lst_lines = []
 
-                sql = "INSERT INTO dsme_tender_spec_2019 (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
+                cursor = mydb.cursor()
+                sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
                 val = (line, True, page_cnt, file_name_without_extension)
                 cursor.execute(sql, val)
                 mydb.commit()
+                cursor.close()
 
-                print(f"title: [{line}]")
+
+                # print(f"title: [{line}]")
                 current_title = idx_tab.pop(0)
                 count_line = i
             else:
@@ -401,7 +407,7 @@ def find_titles(file_name_without_extension, text_without_pgbrk, idx_tab, line_n
                             else:
                                 inner_last_line = ''
                                 # Print lines
-                                read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt)
+                                read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt)
 
                                 lst_lines = []
 
@@ -414,7 +420,7 @@ def find_titles(file_name_without_extension, text_without_pgbrk, idx_tab, line_n
     return count_line
 
 
-def read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt):
+def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt):
     text = ''
     bullet_point = False
     for line in lst_lines:
@@ -455,19 +461,20 @@ def read_lines_from_lst_lines(file_name_without_extension, lst_lines, page_cnt):
                     if count_words > 0 and count_words < 7 \
                             and (100 / count_words) * count_upper >= 70 \
                             and (line.strip()).split()[-1][-1] != '.':
-                        print(f"Discovered title {line}")
+                        # print(f"Discovered title {line}")
                         text = text + '\n' + line + '\n'
                     else:
                         text = text + ' ' + line
 
-    print("text:")
-    print(text)
+    # print("text:")
+    # print(text)
 
-
-    sql = "INSERT INTO dsme_tender_spec_2019 (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
+    cursor = mydb.cursor()
+    sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
     val = (text, False, page_cnt, file_name_without_extension)
     cursor.execute(sql, val)
     mydb.commit()
+    cursor.close()
 
 
 # Retrieve a content table from a text
@@ -507,8 +514,49 @@ def extract_content_table(text):
 
     return lst_idx_tab, tab_end_line
 
+def create_tab_if_not_exists(table_name):
+    cursor = mydb.cursor()
+
+    sql = "CREATE TABLE IF NOT EXISTS " + table_name + " ( id MediumInt(9) NOT NULL AUTO_INCREMENT,\
+            par_text  LongText CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+            is_title  TinyInt(1) NOT NULL,\
+            page      MediumInt(9) NOT NULL,\
+            file_name VarChar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+            PRIMARY KEY (\
+            id\
+            )\
+            ) ENGINE=InnoDB AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\
+            ALTER TABLE " + table_name + " COMMENT = '';"
+
+    cursor.execute(sql)
+    mydb.commit()
+    cursor.close()
+
+def check_if_tab_exist():
+    cursor = mydb.cursor()
+    today = date.today()
+    # print("Today's date:", today.year)
+    today = 'dsme_tender_spec_' + str(today.year)
+    cursor.execute("SHOW TABLES ")
+
+    lst_tabs = []
+    for x in cursor:
+        lst_tabs.append(remove_selected_punctuation(str(x)))
+
+    if today not in lst_tabs:
+        create_tab_if_not_exists(today)
+
+    cursor.close()
+    return today
+
 def main(argv):
+    start_time = time.time()
     assert len(argv) == 3, ASSERT_MESSAGE
+    if not os.path.isfile('./' + argv[1]):
+        return print('File name does not exist!')
+
+    # Check if table exist, else create a new table
+    table_name = check_if_tab_exist()
 
     # pdf file name
     FILE_NAME = argv[1]
@@ -518,8 +566,10 @@ def main(argv):
     file_name_without_extension = FILE_NAME.split('.pdf',1)[0]
     # Same file but with .txt format
     file_name_txt = file_name_without_extension + '.txt'
+    # Make a program to wait until shell command completes
     subprocess.call(["pdftotext", "-layout", FILE_NAME, file_name_txt])
 
+    print("Finished converting pdf into txt", round(time.time() - start_time), 4)
     #----------------------------------------
 
     # # file_name_txt = 'ABB1F.txt'
@@ -530,30 +580,31 @@ def main(argv):
     #
     # line_number_flag = 'True'
 
+    # Clean the line numners if there are in a text, else replace pgbrk to the 'NEW_LINE' marker
     if line_number_flag == 'True':
         cleaned_text = remove_line_numbers(file_name_txt)
     else:
         cleaned_text = clean_file_without_line_numbers(file_name_txt)
+    print("Cleaned text from number lines", round(time.time() - start_time), 4)
     # ----------------------------------------
 
-
-
-    # cleaned_text = clean_file_without_line_numbers(FILE_NAME)
-
     lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
+    print("Counted page breaker size:", lines_before_pgbrk + lines_after_pgbrk, round(time.time() - start_time), 4)
 
     text_without_pgbrk = sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name_txt)
+    print("Removed page breaker and concatenated pages", round(time.time() - start_time), 4)
 
     content_table, tab_end_line = extract_content_table(text_without_pgbrk)
+    print("Extract content table", round(time.time() - start_time), 4)
 
     # print(text_without_pgbrk)
 
     line_num = 0
-    find_titles(file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
+    find_titles(table_name, file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
 
     lst_not_found_titles = []
     while content_table:
-        line_num = find_titles(file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
+        line_num = find_titles(table_name, file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
         if content_table:
             lst_not_found_titles.append(content_table.pop(0))
 
@@ -565,18 +616,8 @@ def main(argv):
         print(f"There are {len(lst_not_found_titles)} title(s) that were not identified as title, instead included as a text")
         print(lst_not_found_titles)
 
+    print("Process time", round(time.time() - start_time), 4)
+
 if __name__ == '__main__':
+
     main(sys.argv)
-
-    # file_name = '2.2.4_Shipyard_ITT_Attachment.pdf'
-    # file_name_txt = file_name.split('.pdf',1)[0] + '.txt'
-    #     # print(file_name_txt)
-    # subprocess.call(["pdftotext", "-layout", file_name, file_name_txt])
-    #
-    # with open(file_name_txt) as f:
-    #     for line in f:
-    #         print(line)
-
-
-    # cmd = 'pdftotext -layout' + ' ' + file_name + ' ' + output_file
-    # os.system(cmd)

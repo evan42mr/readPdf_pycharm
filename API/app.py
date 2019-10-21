@@ -21,6 +21,38 @@ data_base = config_dict['data_base']['data_base']
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/read_annual/<string:file_year>',  methods=['GET'])
+def read_annual(file_year):
+    try:
+        mydb = mariadb.connect(
+            host=ip,
+            user=db_id,
+            passwd=pw,
+            database=data_base
+        )
+        cursor = mydb.cursor()
+        file_name = 'dsme_tender_spec_' + file_year
+        sql = "SELECT * FROM %s" % (file_name,)
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+
+        columns = [desc[0] for desc in cursor.description]
+        result = []
+        for row in rows:
+            row = dict(zip(columns, row))
+            result.append(row)
+
+
+        resp = jsonify(result)
+
+        resp.status_code = 200
+        return resp
+    except Exception as e:
+        print(e)
+    finally:
+        cursor.close()
+        mydb.close()
+
 @app.route('/readAll/<string:file_name>',  methods=['GET'])
 def read_all(file_name):
     try:
@@ -83,7 +115,7 @@ def read_all():
 
 if __name__ == '__main__':
     app.debug = True
-    app.run(host='192.168.0.229', port=6000)
+    app.run(host='0.0.0.0', port=6000)
 
 # # To load json to a dictionary
 # json.loads
