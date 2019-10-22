@@ -413,7 +413,7 @@ def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst
             count_spaces = 0
             tokens = re.findall('\s+', line)
             for i in range(0, len(tokens)):
-                # Count the max soace in the line
+                # Count the max space in the line
                 if len(tokens[i]) > count_spaces:
                     count_spaces = len(tokens[i])
             # Check if the line is a bullet point or a table raw
