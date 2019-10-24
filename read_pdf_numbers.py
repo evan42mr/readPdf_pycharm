@@ -351,7 +351,7 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
     page_cnt = 1
 
     # Last sentence is needed to store the last read line
-    # to track if it is a not finished sentence of not
+    # to track if it is a not finished sentence or not
     last_line = ''
 
     for i, line in enumerate(text_without_pgbrk.splitlines()):
@@ -362,6 +362,12 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
             # print("new page")
             page_cnt += 1
             continue
+        """
+        line_num is the number of the line that was processed in a text.
+        We remember it in case program can't find a title from content_table in a text.
+        Thus, title will not be identified as a title, instead it will be just included as a text
+        """
+
         if i > line_num and i > tab_end_line:
             if idx_tab and \
                     ' '.join(remove_numbers(line).split()).strip().upper() == \
@@ -373,15 +379,15 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
                     read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt)
                     lst_lines = []
 
-                cursor = mydb.cursor()
-                sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
-                val = (line, True, page_cnt, file_name_without_extension)
-                cursor.execute(sql, val)
-                mydb.commit()
-                cursor.close()
+                # cursor = mydb.cursor()
+                # sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
+                # val = (line, True, page_cnt, file_name_without_extension)
+                # cursor.execute(sql, val)
+                # mydb.commit()
+                # cursor.close()
 
 
-                # print(f"title: [{line}]")
+                print(f"title: [{line}]")
                 current_title = idx_tab.pop(0)
                 count_line = i
             else:
@@ -426,13 +432,16 @@ def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines
     for line in lst_lines:
         # Write the first line
         if text == '':
-            text += line
+            if check_if_line_is_title(line):
+                text += '\n' + line + '\n'
+            else:
+                text += line
         else:
             # Count spaces between words
             count_spaces = 0
             tokens = re.findall('\s+', line)
             for i in range(0, len(tokens)):
-                # Count the max soace in the line
+                # Count the max space in the line
                 if len(tokens[i]) > count_spaces:
                     count_spaces = len(tokens[i])
             # Check if the line is a bullet point or a table raw
@@ -446,35 +455,20 @@ def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines
                     bullet_point = False
                 else:
                     #  Check if line is a title
-                    count_words = 0
-                    count_upper = 0
-
-                    for i in (line.strip()).split():
-                        count_words += 1
-                        if i[0].isupper():
-                            count_upper += 1
-
-                    # If line has less then 7 words
-                    # Good chances it is a title if
-                    # percentage of words starting with capital letter
-                    # is equal or higher then 70%
-                    if count_words > 0 and count_words < 7 \
-                            and (100 / count_words) * count_upper >= 70 \
-                            and (line.strip()).split()[-1][-1] != '.':
-                        # print(f"Discovered title {line}")
+                    if check_if_line_is_title(line):
                         text = text + '\n' + line + '\n'
                     else:
                         text = text + ' ' + line
 
-    # print("text:")
-    # print(text)
+    print("text:")
+    print(text)
 
-    cursor = mydb.cursor()
-    sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
-    val = (text, False, page_cnt, file_name_without_extension)
-    cursor.execute(sql, val)
-    mydb.commit()
-    cursor.close()
+    # cursor = mydb.cursor()
+    # sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
+    # val = (text, False, page_cnt, file_name_without_extension)
+    # cursor.execute(sql, val)
+    # mydb.commit()
+    # cursor.close()
 
 
 # Retrieve a content table from a text
@@ -549,6 +543,31 @@ def check_if_tab_exist():
     cursor.close()
     return today
 
+# For title that are not in a context table
+def check_if_line_is_title(line_text):
+    #  Check if line is a title
+    temp_line = remove_numbers(line_text)
+    temp_line = remove_punctuation(temp_line)
+
+    count_words = 0
+    count_upper = 0
+
+    for i in (temp_line.strip()).split():
+        count_words += 1
+        if i[0].isupper():
+            count_upper += 1
+
+    # If line has less then 7 words
+    # Good chances it is a title if
+    # percentage of words starting with capital letter
+    # is equal or higher then 70%
+    if count_words > 0 and count_words < 7 \
+            and (100 / count_words) * count_upper >= 70 \
+            and (temp_line.strip()).split()[-1][-1] != '.':
+        return True
+    else:
+        return False
+
 def main(argv):
     start_time = time.time()
     assert len(argv) == 3, ASSERT_MESSAGE
@@ -616,7 +635,7 @@ def main(argv):
         print(f"There are {len(lst_not_found_titles)} title(s) that were not identified as title, instead included as a text")
         print(lst_not_found_titles)
 
-    print("Process time", round(time.time() - start_time), 4)
+    print("Process time", round((time.time() - start_time),4))
 
 if __name__ == '__main__':
 

@@ -407,7 +407,10 @@ def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst
     for line in lst_lines:
         # Write the first line
         if text == '':
-            text += line
+            if check_if_line_is_title(line):
+                text += '\n' + line + '\n'
+            else:
+                text += line
         else:
             # Count spaces between words
             count_spaces = 0
@@ -427,22 +430,7 @@ def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst
                     bullet_point = False
                 else:
                     #  Check if line is a title
-                    count_words = 0
-                    count_upper = 0
-
-                    for i in (line.strip()).split():
-                        count_words += 1
-                        if i[0].isupper():
-                            count_upper += 1
-
-                    # If line has less then 7 words
-                    # Good chances it is a title if
-                    # percentage of words starting with capital letter
-                    # is equal or higher then 70%
-                    if count_words > 0 and count_words < 7 \
-                            and (100 / count_words) * count_upper >= 70 \
-                            and (line.strip()).split()[-1][-1] != '.':
-                        # print(f"Discovered title {line}")
+                    if check_if_line_is_title(line):
                         text = text + '\n' + line + '\n'
                     else:
                         text = text + ' ' + line
@@ -529,3 +517,28 @@ def check_if_tab_exist(mydb):
 
     cursor.close()
     return today
+
+# For title that are not in a context table
+def check_if_line_is_title(line_text):
+    #  Check if line is a title
+    temp_line = remove_numbers(line_text)
+    temp_line = remove_punctuation(temp_line)
+
+    count_words = 0
+    count_upper = 0
+
+    for i in (temp_line.strip()).split():
+        count_words += 1
+        if i[0].isupper():
+            count_upper += 1
+
+    # If line has less then 7 words
+    # Good chances it is a title if
+    # percentage of words starting with capital letter
+    # is equal or higher then 70%
+    if count_words > 0 and count_words < 7 \
+            and (100 / count_words) * count_upper >= 70 \
+            and (temp_line.strip()).split()[-1][-1] != '.':
+        return True
+    else:
+        return False
