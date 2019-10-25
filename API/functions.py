@@ -325,7 +325,7 @@ def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size
     return text
 
 
-def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line):
+def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line, title_indent_spaces):
     count_line = 0
     current_title = ''
     lst_lines = []
@@ -355,15 +355,21 @@ def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbr
                     lst_lines = []
 
                 cursor = mydb.cursor()
-                sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
-                val = (line, True, page_cnt, file_name_without_extension)
+                sql = "INSERT INTO " + table_name + " (par_text, is_title, is_sub_title, page, file_name) VALUES (%s,%s,%s,%s,%s)"
+
+                current_title = idx_tab.pop(0)
+                leading_spaces = len(current_title) - len(current_title.lstrip(' '))
+                if leading_spaces == title_indent_spaces:
+                    val = (line, True, False, page_cnt, file_name_without_extension)
+                else:
+                    val = (line, False, True, page_cnt, file_name_without_extension)
                 cursor.execute(sql, val)
                 mydb.commit()
                 cursor.close()
 
 
                 # print(f"title: [{line}]")
-                current_title = idx_tab.pop(0)
+
                 count_line = i
             else:
                 if current_title != '':
@@ -439,8 +445,8 @@ def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst
     # print(text)
 
     cursor = mydb.cursor()
-    sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
-    val = (text, False, page_cnt, file_name_without_extension)
+    sql = "INSERT INTO " + table_name + " (par_text, is_title, is_sub_title, page, file_name) VALUES (%s,%s,%s,%s,%s)"
+    val = (text, False, False, page_cnt, file_name_without_extension)
     cursor.execute(sql, val)
     mydb.commit()
     cursor.close()
@@ -456,6 +462,8 @@ def extract_content_table(text):
     tabEnd = False
     # Count lines after expected end of the table of contents
     cnt_lines_after_expected_end = 0
+    # Leading spaces of the title, stored to distinguish from sub_titles
+    title_indent_spaces = -1
 
     lst_idx_tab = []
 
@@ -472,6 +480,9 @@ def extract_content_table(text):
             if not tabStart:
                 tabStart = True
 
+            if title_indent_spaces == -1:
+                title_indent_spaces = len(line) - len(line.lstrip(' '))
+
             lst_idx_tab.append(line[:found_content_item])
             cnt_lines_after_expected_end = 0
 
@@ -481,7 +492,7 @@ def extract_content_table(text):
                 tabEnd = True
                 break
 
-    return lst_idx_tab, tab_end_line
+    return lst_idx_tab, tab_end_line, title_indent_spaces
 
 def create_tab_if_not_exists(mydb, table_name):
     cursor = mydb.cursor()

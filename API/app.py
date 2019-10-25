@@ -55,17 +55,16 @@ def post_annual_numbers(table_year):
 
         text_without_pgbrk = functions.sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name_txt)
 
-        content_table, tab_end_line = functions.extract_content_table(text_without_pgbrk)
+        content_table, tab_end_line, title_indent_spaces = functions.extract_content_table(text_without_pgbrk)
 
         line_num = 0
         functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, content_table,
-                              line_num, tab_end_line)
+                              line_num, tab_end_line, title_indent_spaces)
 
         lst_not_found_titles = []
         while content_table:
             line_num = functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk,
-                                             content_table, line_num,
-                                             tab_end_line)
+                                             content_table, line_num, tab_end_line, title_indent_spaces)
             if content_table:
                 lst_not_found_titles.append(content_table.pop(0))
 
@@ -99,22 +98,22 @@ def post_annual(table_year):
         # Make a program to wait until shell command completes
         subprocess.call(["pdftotext", "-layout", FILE_NAME, file_name_txt])
 
-        cleaned_text = functions.remove_line_numbers(file_name_txt)
+        cleaned_text = functions.clean_file_without_line_numbers(file_name_txt)
 
         lines_before_pgbrk, lines_after_pgbrk = functions.count_pgbrk_borders(cleaned_text)
 
         text_without_pgbrk = functions.sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name_txt)
 
-        content_table, tab_end_line = functions.extract_content_table(text_without_pgbrk)
+        content_table, tab_end_line, title_indent_spaces = functions.extract_content_table(text_without_pgbrk)
 
         line_num = 0
         functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, content_table,
-                              line_num, tab_end_line)
+                              line_num, tab_end_line, title_indent_spaces)
 
         lst_not_found_titles = []
         while content_table:
             line_num = functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk,
-                                             content_table, line_num, tab_end_line)
+                                             content_table, line_num, tab_end_line, title_indent_spaces)
             if content_table:
                 lst_not_found_titles.append(content_table.pop(0))
 
