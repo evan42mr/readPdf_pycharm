@@ -80,7 +80,7 @@ def post_annual_numbers(table_year):
 
 @app.route('/post_annual/<string:table_year>', methods=['POST'])
 def post_annual(table_year):
-    FILE_NAME = 'KOGAS-2449.pdf'
+    FILE_NAME = 'ON-2462.pdf'
     try:
         mydb = mariadb.connect(
             host=ip,
@@ -124,9 +124,9 @@ def post_annual(table_year):
         cursor.close()
         mydb.close()
 
-@app.route('/read_annual/<string:table_year>',  methods=['GET'])
+@app.route('/read_annual/<string:table_year>/<string:table_name>',  methods=['GET'])
 @cache.cached(timeout=3600)
-def read_annual(table_year):
+def read_annual(table_year, table_name):
     try:
         mydb = mariadb.connect(
             host=ip,
@@ -136,7 +136,7 @@ def read_annual(table_year):
         )
         cursor = mydb.cursor()
         file_name = 'dsme_tender_spec_' + table_year
-        sql = "SELECT * FROM %s" % (file_name,)
+        sql = "SELECT * FROM %s WHERE FILE_NAME = '%s' ORDER BY id ASC" % (file_name, table_name,)
         cursor.execute(sql)
         rows = cursor.fetchall()
 
