@@ -72,7 +72,8 @@ cache = Cache(app)
 @app.route('/post_annual/with_numbers/<string:table_year>',  methods=['POST'])
 def post_annual_numbers(table_year):
     try:
-        FILE_NAME = '2.2.4_Shipyard_ITT_Attachment.pdf'
+        # FILE_NAME = '2.2.4_Shipyard_ITT_Attachment.pdf'
+        FILE_NAME = '2_Tender_Part+I+Appendix-ABB1F.pdf'
         mydb = mariadb.connect(
             host=ip,
             user=db_id,
@@ -97,16 +98,11 @@ def post_annual_numbers(table_year):
 
         content_table, tab_end_line, title_indent_spaces = functions.extract_content_table(text_without_pgbrk)
 
-        line_num = 0
-        functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, content_table,
-                              line_num, tab_end_line, title_indent_spaces)
+        new_content_table = functions.extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line)
 
-        lst_not_found_titles = []
-        while content_table:
-            line_num = functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk,
-                                             content_table, line_num, tab_end_line, title_indent_spaces)
-            if content_table:
-                lst_not_found_titles.append(content_table.pop(0))
+        line_num = 0
+        functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, new_content_table,
+                              line_num, tab_end_line, title_indent_spaces)
 
         return "Upload of a file finished"
 
@@ -121,6 +117,7 @@ def post_annual_numbers(table_year):
 @app.route('/post_annual/<string:table_year>', methods=['POST'])
 def post_annual(table_year):
     FILE_NAME = 'ON-2462.pdf'
+    # FILE_NAME = 'KOGAS-2449.pdf'
     try:
         mydb = mariadb.connect(
             host=ip,
@@ -145,17 +142,12 @@ def post_annual(table_year):
         text_without_pgbrk = functions.sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name_txt)
 
         content_table, tab_end_line, title_indent_spaces = functions.extract_content_table(text_without_pgbrk)
+        # Content table that contains only titles that can be identified in a text
+        new_content_table = functions.extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line)
 
         line_num = 0
-        functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, content_table,
+        functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, new_content_table,
                               line_num, tab_end_line, title_indent_spaces)
-
-        lst_not_found_titles = []
-        while content_table:
-            line_num = functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk,
-                                             content_table, line_num, tab_end_line, title_indent_spaces)
-            if content_table:
-                lst_not_found_titles.append(content_table.pop(0))
 
         return "Upload finished"
     except Exception as e:

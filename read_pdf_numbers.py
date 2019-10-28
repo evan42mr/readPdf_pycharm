@@ -1,58 +1,24 @@
-import json
 import re
-import sys
-import os
-import string
 import pprint
+import operator
+import pprint
+import string
 from difflib import SequenceMatcher
-import subprocess
-import mysql.connector as mariadb
-from datetime import date
-import time
-
-# Connect to mariadb
-with open('./API/config.json') as f:
-    config_dict = json.loads(f.read())
-# print(config_dict)
-db_id = config_dict['data_base']['db_id']
-pw = config_dict['data_base']['pw']
-ip = config_dict['data_base']['ip']
-data_base = config_dict['data_base']['data_base']
-
-mydb = mariadb.connect(
-    host=ip,
-    user=db_id,
-    passwd=pw,
-    database=data_base
-)
-
 
 pp = pprint.PrettyPrinter(indent=4)
 NEW_PAGE = '----------------> new page <---------------\n'
 
-ASSERT_MESSAGE = '\n There should be given 2 arguments\
-                  \n 1) file_name\
-                  \n 2) line_numbers (True or False)'
 
 def remove_numbers(text):
     return re.sub(r'\d+', '', text)
 
-def remove_between_square_brackets(text):
-    return re.sub('\[[^]]*\]', '', text)
-
-def remove_betweem_brackets(text):
-    return re.sub('.*?\((.*?)\)', '', text)
 
 def remove_punctuation(text):
-    return text.translate(str.maketrans('','',string.punctuation))
+    return text.translate(str.maketrans('', '', string.punctuation))
 
-def remove_all_spaces(text):
-    return text.replace(' ', '-')
 
-def remove_selected_punctuation(text):
-    return re.sub(r"[\\()'\,\"]",'',text)
 """
-Removes number lines from pdf file
+Removes number from each line from pdf file
 """
 
 
@@ -344,14 +310,14 @@ def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size
     return text
 
 
-def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line):
+def find_titles(text_without_pgbrk, idx_tab, line_num, tab_end_line, title_indent_spaces):
     count_line = 0
     current_title = ''
     lst_lines = []
     page_cnt = 1
 
     # Last sentence is needed to store the last read line
-    # to track if it is a not finished sentence or not
+    # to track if it is a not finished sentence of not
     last_line = ''
 
     for i, line in enumerate(text_without_pgbrk.splitlines()):
@@ -362,12 +328,6 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
             # print("new page")
             page_cnt += 1
             continue
-        """
-        line_num is the number of the line that was processed in a text.
-        We remember it in case program can't find a title from content_table in a text.
-        Thus, title will not be identified as a title, instead it will be just included as a text
-        """
-
         if i > line_num and i > tab_end_line:
             if idx_tab and \
                     ' '.join(remove_numbers(line).split()).strip().upper() == \
@@ -376,20 +336,22 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
                 # Print lines under the previous paragraph
                 if lst_lines:
                     # Print lines
-                    read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt)
+                    read_lines_from_lst_lines(lst_lines)
                     lst_lines = []
 
-                # cursor = mydb.cursor()
-                # sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
-                # val = (line, True, page_cnt, file_name_without_extension)
-                # cursor.execute(sql, val)
-                # mydb.commit()
-                # cursor.close()
+                #                 sql = "INSERT INTO on_2462 (par_text, is_title, page) VALUES (%s,%s,%s)"
+                #                 val = (line, True, page_cnt)
+                #                 mycursor.execute(sql, val)
+                #                 mydb.commit()
 
-
-                print(f"title: [{line}]")
                 current_title = idx_tab.pop(0)
+                leading_spaces = len(current_title) - len(current_title.lstrip(' '))
+                if leading_spaces == title_indent_spaces:
+                    print(f"title: [{line}]")
+                else:
+                    print(f"sub_title: [{line}]")
                 count_line = i
+
             else:
                 if current_title != '':
                     # If new paragraph
@@ -413,7 +375,7 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
                             else:
                                 inner_last_line = ''
                                 # Print lines
-                                read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt)
+                                read_lines_from_lst_lines(lst_lines)
 
                                 lst_lines = []
 
@@ -421,16 +383,18 @@ def find_titles(table_name, file_name_without_extension, text_without_pgbrk, idx
                         lst_lines.append(line)
 
         last_line = line
+
     #     mycursor.close()
     #     mydb.close()
     return count_line
 
 
-def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines, page_cnt):
+def read_lines_from_lst_lines(lst_lines):
     text = ''
     bullet_point = False
     for line in lst_lines:
         # Write the first line
+
         if text == '':
             if check_if_line_is_title(line):
                 text += '\n' + line + '\n'
@@ -441,7 +405,7 @@ def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines
             count_spaces = 0
             tokens = re.findall('\s+', line)
             for i in range(0, len(tokens)):
-                # Count the max space in the line
+                # Count the max soace in the line
                 if len(tokens[i]) > count_spaces:
                     count_spaces = len(tokens[i])
             # Check if the line is a bullet point or a table raw
@@ -456,6 +420,7 @@ def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines
                 else:
                     #  Check if line is a title
                     if check_if_line_is_title(line):
+                        print(f"Discovered title: [{line}]")
                         text = text + '\n' + line + '\n'
                     else:
                         text = text + ' ' + line
@@ -463,87 +428,12 @@ def read_lines_from_lst_lines(table_name, file_name_without_extension, lst_lines
     print("text:")
     print(text)
 
-    # cursor = mydb.cursor()
-    # sql = "INSERT INTO " + table_name + " (par_text, is_title, page, file_name) VALUES (%s,%s,%s,%s)"
-    # val = (text, False, page_cnt, file_name_without_extension)
-    # cursor.execute(sql, val)
-    # mydb.commit()
-    # cursor.close()
 
+#                             sql = "INSERT INTO on_2462 (par_text, is_title, page) VALUES (%s,%s,%s)"
+#                             val = (text, False, page_cnt)
+#                             mycursor.execute(sql, val)
+#                             mydb.commit()
 
-# Retrieve a content table from a text
-def extract_content_table(text):
-    # Number of the line where table of contents ends
-    tab_end_line = 0
-    # Flag for the start of the table of contents
-    tabStart = False
-    # Flag for the end of the table of contents
-    tabEnd = False
-    # Count lines after expected end of the table of contents
-    cnt_lines_after_expected_end = 0
-
-    lst_idx_tab = []
-
-    line_counter = 0
-    for i, line in enumerate(text.splitlines()):
-
-        line_counter += 1
-
-        found_content_item = line.find('..........')
-
-        if not tabEnd and found_content_item != -1:
-            tab_end_line = i
-
-            if not tabStart:
-                tabStart = True
-
-            lst_idx_tab.append(line[:found_content_item])
-            cnt_lines_after_expected_end = 0
-
-        if tabStart and not tabEnd and found_content_item == -1:
-            cnt_lines_after_expected_end += 1
-            if cnt_lines_after_expected_end > 20:
-                tabEnd = True
-                break
-
-    return lst_idx_tab, tab_end_line
-
-def create_tab_if_not_exists(table_name):
-    cursor = mydb.cursor()
-
-    sql = "CREATE TABLE IF NOT EXISTS " + table_name + " ( id MediumInt(9) NOT NULL AUTO_INCREMENT,\
-            par_text  LongText CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
-            is_title  TinyInt(1) NOT NULL,\
-            page      MediumInt(9) NOT NULL,\
-            file_name VarChar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
-            PRIMARY KEY (\
-            id\
-            )\
-            ) ENGINE=InnoDB AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\
-            ALTER TABLE " + table_name + " COMMENT = '';"
-
-    cursor.execute(sql)
-    mydb.commit()
-    cursor.close()
-
-def check_if_tab_exist():
-    cursor = mydb.cursor()
-    today = date.today()
-    # print("Today's date:", today.year)
-    today = 'dsme_tender_spec_' + str(today.year)
-    cursor.execute("SHOW TABLES ")
-
-    lst_tabs = []
-    for x in cursor:
-        lst_tabs.append(remove_selected_punctuation(str(x)))
-
-    if today not in lst_tabs:
-        create_tab_if_not_exists(today)
-
-    cursor.close()
-    return today
-
-# For title that are not in a context table
 def check_if_line_is_title(line_text):
     #  Check if line is a title
     temp_line = remove_numbers(line_text)
@@ -568,75 +458,119 @@ def check_if_line_is_title(line_text):
     else:
         return False
 
-def main(argv):
-    start_time = time.time()
-    assert len(argv) == 3, ASSERT_MESSAGE
-    if not os.path.isfile('./' + argv[1]):
-        return print('File name does not exist!')
 
-    # Check if table exist, else create a new table
-    table_name = check_if_tab_exist()
+# Retrieve a content table from a text
+def extract_content_table(text):
+    # Number of the line where table of contents ends
+    tab_end_line = 0
+    # Flag for the start of the table of contents
+    tabStart = False
+    # Flag for the end of the table of contents
+    tabEnd = False
+    # Count lines after expected end of the table of contents
+    cnt_lines_after_expected_end = 0
+    # Leading spaces of the title, stored to distinguish from sub_titles
+    title_indent_spaces = -1
 
-    # pdf file name
-    FILE_NAME = argv[1]
-    line_number_flag = argv[2]
+    lst_idx_tab = []
 
-    # Used to name a table in a database
-    file_name_without_extension = FILE_NAME.split('.pdf',1)[0]
-    # Same file but with .txt format
-    file_name_txt = file_name_without_extension + '.txt'
-    # Make a program to wait until shell command completes
-    subprocess.call(["pdftotext", "-layout", FILE_NAME, file_name_txt])
+    line_counter = 0
+    for i, line in enumerate(text.splitlines()):
 
-    print("Finished converting pdf into txt", round(time.time() - start_time), 4)
-    #----------------------------------------
+        line_counter += 1
+        count_dots = 0
+        temp_line = ''
 
-    # # file_name_txt = 'ABB1F.txt'
-    # file_name_txt = 'Shipyard.txt'
-    # # file_name_txt = 'KOGAS -2449.txt'
-    # # file_name_txt = 'ON -2462.txt'
-    # file_name_without_extension = file_name_txt.split('.txt', 1)[0]
-    #
-    # line_number_flag = 'True'
+        found_content_item = line.find('..........')
 
-    # Clean the line numners if there are in a text, else replace pgbrk to the 'NEW_LINE' marker
-    if line_number_flag == 'True':
-        cleaned_text = remove_line_numbers(file_name_txt)
-    else:
-        cleaned_text = clean_file_without_line_numbers(file_name_txt)
-    print("Cleaned text from number lines", round(time.time() - start_time), 4)
-    # ----------------------------------------
+        if not tabEnd and found_content_item != -1:
+            tab_end_line = i
 
-    lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
-    print("Counted page breaker size:", lines_before_pgbrk + lines_after_pgbrk, round(time.time() - start_time), 4)
+            if not tabStart:
+                tabStart = True
 
-    text_without_pgbrk = sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name_txt)
-    print("Removed page breaker and concatenated pages", round(time.time() - start_time), 4)
+            if title_indent_spaces == -1:
+                title_indent_spaces = len(line) - len(line.lstrip(' '))
 
-    content_table, tab_end_line = extract_content_table(text_without_pgbrk)
-    print("Extract content table", round(time.time() - start_time), 4)
+            lst_idx_tab.append(line[:found_content_item])
+            cnt_lines_after_expected_end = 0
 
-    # print(text_without_pgbrk)
+        if tabStart and not tabEnd and found_content_item == -1:
+            cnt_lines_after_expected_end += 1
+            if cnt_lines_after_expected_end > 20:
+                tabEnd = True
+                break
 
+    return lst_idx_tab, tab_end_line, title_indent_spaces
+"""
+Scan the text and look for titles that can be detected,
+titles that can't be find are just removed from the list
+and then added as just a text sentence. 
+
+This function does a double work by scanning the text several time,
+but because of the time deadlines, I didn't have time to write
+something better or integrade it into find_titles function
+"""
+def extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line):
+    idx_tab = []
     line_num = 0
-    find_titles(table_name, file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
 
-    lst_not_found_titles = []
     while content_table:
-        line_num = find_titles(table_name, file_name_without_extension, text_without_pgbrk, content_table, line_num, tab_end_line)
+
+        for i, line in enumerate(text_without_pgbrk.splitlines()):
+            if i > line_num and i > tab_end_line:
+                if content_table and \
+                        ' '.join(remove_numbers(line).split()).strip().upper() == \
+                        ' '.join(remove_numbers(content_table[0]).split()).strip().upper():
+                    idx_tab.append(content_table.pop(0))
+                    line_num += 1
+
         if content_table:
-            lst_not_found_titles.append(content_table.pop(0))
+            content_table.pop(0)
 
-    print('\n\n')
-    if not lst_not_found_titles:
-        print("--------- Process is done ---------")
-    else:
-        print("--------- Something went wrong! ---------")
-        print(f"There are {len(lst_not_found_titles)} title(s) that were not identified as title, instead included as a text")
-        print(lst_not_found_titles)
 
-    print("Process time", round((time.time() - start_time),4))
+    return idx_tab
 
-if __name__ == '__main__':
 
-    main(sys.argv)
+
+# FILE_NAME = 'ABB1F.txt'
+# FILE_NAME = 'Shipyard.txt'
+
+# cleaned_text = remove_line_numbers(FILE_NAME)
+# ----------------------------------------
+
+FILE_NAME = 'KOGAS -2449.txt'
+# FILE_NAME = 'ON -2462.txt'
+
+cleaned_text = clean_file_without_line_numbers(FILE_NAME)
+
+lines_before_pgbrk, lines_after_pgbrk = count_pgbrk_borders(cleaned_text)
+# print(lines_before_pgbrk, lines_after_pgbrk)
+text_without_pgbrk = sliding_window(lines_before_pgbrk, lines_after_pgbrk, FILE_NAME)
+
+# print(text_without_pgbrk)
+
+content_table, tab_end_line, title_indent_spaces = extract_content_table(text_without_pgbrk)
+print(len(content_table))
+"""
+Content table should be consisted only from those titles that can be identified
+in the text. Otherwise bug leads to storing the text several times in a database
+"""
+new_content_table = extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line)
+
+# line_num = 0
+find_titles(text_without_pgbrk, new_content_table, 0, tab_end_line, title_indent_spaces)
+
+# lst_not_found_titles = []
+# while content_table:
+#     line_num = find_titles(text_without_pgbrk, content_table, line_num, tab_end_line, title_indent_spaces)
+#     if content_table:
+#         lst_not_found_titles.append(content_table.pop(0))
+
+# print('\n\n')
+# if not lst_not_found_titles:
+#     print("--------- Process is done ---------")
+# else:
+#     print("--------- Something went wrong! ---------")
+#     print(f"There are still {len(lst_not_found_titles)} element to search")
+#     print(lst_not_found_titles)

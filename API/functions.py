@@ -500,6 +500,7 @@ def create_tab_if_not_exists(mydb, table_name):
     sql = "CREATE TABLE IF NOT EXISTS " + table_name + " ( id MediumInt(9) NOT NULL AUTO_INCREMENT,\
             par_text  LongText CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
             is_title  TinyInt(1) NOT NULL,\
+            is_sub_title TinyInt(1) NOT NULL,\
             page      MediumInt(9) NOT NULL,\
             file_name VarChar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
             PRIMARY KEY (\
@@ -553,3 +554,27 @@ def check_if_line_is_title(line_text):
         return True
     else:
         return False
+"""
+This function does a double work by scanning the text several time,
+but because of the time deadlines, I didn't have time to write
+something better or integrade it into find_titles function
+"""
+def extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line):
+    idx_tab = []
+    line_num = 0
+
+    while content_table:
+
+        for i, line in enumerate(text_without_pgbrk.splitlines()):
+            if i > line_num and i > tab_end_line:
+                if content_table and \
+                        ' '.join(remove_numbers(line).split()).strip().upper() == \
+                        ' '.join(remove_numbers(content_table[0]).split()).strip().upper():
+                    idx_tab.append(content_table.pop(0))
+                    line_num += 1
+
+        if content_table:
+            content_table.pop(0)
+
+
+    return idx_tab
