@@ -325,11 +325,12 @@ def sliding_window(lines_before_pgbrk, lines_after_pgbrk, file_name, window_size
     return text
 
 
-def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, idx_tab, line_num, tab_end_line, title_indent_spaces):
+def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, idx_tab, tab_end_line, title_indent_spaces):
     count_line = 0
     current_title = ''
     lst_lines = []
     page_cnt = 1
+    section_id = 0
 
     # Last sentence is needed to store the last read line
     # to track if it is a not finished sentence of not
@@ -343,7 +344,8 @@ def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbr
             # print("new page")
             page_cnt += 1
             continue
-        if i > line_num and i > tab_end_line:
+        if i > tab_end_line:
+            # Check if the line is a title
             if idx_tab and \
                     ' '.join(remove_numbers(line).split()).strip().upper() == \
                     ' '.join(remove_numbers(idx_tab[0]).split()).strip().upper():
@@ -351,18 +353,22 @@ def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbr
                 # Print lines under the previous paragraph
                 if lst_lines:
                     # Print lines
-                    read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst_lines, page_cnt)
+                    read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst_lines, page_cnt, section_id)
                     lst_lines = []
 
                 cursor = mydb.cursor()
-                sql = "INSERT INTO " + table_name + " (par_text, is_title, is_sub_title, page, file_name) VALUES (%s,%s,%s,%s,%s)"
+                sql = "INSERT INTO " + table_name + " (sid, par_text, is_title, is_sub_title, page, file_name) VALUES (%s,%s,%s,%s,%s,%s)"
 
                 current_title = idx_tab.pop(0)
                 leading_spaces = len(current_title) - len(current_title.lstrip(' '))
                 if leading_spaces == title_indent_spaces:
-                    val = (line, True, False, page_cnt, file_name_without_extension)
+                    section_id += 1
+                    val = (section_id, line, True, False, page_cnt, file_name_without_extension)
+
                 else:
-                    val = (line, False, True, page_cnt, file_name_without_extension)
+                    section_id += 1
+                    val = (section_id, line, False, True, page_cnt, file_name_without_extension)
+
                 cursor.execute(sql, val)
                 mydb.commit()
                 cursor.close()
@@ -394,7 +400,7 @@ def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbr
                             else:
                                 inner_last_line = ''
                                 # Print lines
-                                read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst_lines, page_cnt)
+                                read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst_lines, page_cnt, section_id)
 
                                 lst_lines = []
 
@@ -407,7 +413,7 @@ def find_titles(mydb, table_name, file_name_without_extension, text_without_pgbr
     return count_line
 
 
-def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst_lines, page_cnt):
+def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst_lines, page_cnt, section_id):
     text = ''
     bullet_point = False
     for line in lst_lines:
@@ -445,8 +451,8 @@ def read_lines_from_lst_lines(mydb, table_name, file_name_without_extension, lst
     # print(text)
 
     cursor = mydb.cursor()
-    sql = "INSERT INTO " + table_name + " (par_text, is_title, is_sub_title, page, file_name) VALUES (%s,%s,%s,%s,%s)"
-    val = (text, False, False, page_cnt, file_name_without_extension)
+    sql = "INSERT INTO " + table_name + " (sid, par_text, is_title, is_sub_title, page, file_name) VALUES (%s,%s,%s,%s,%s,%s)"
+    val = (section_id, text, False, False, page_cnt, file_name_without_extension)
     cursor.execute(sql, val)
     mydb.commit()
     cursor.close()

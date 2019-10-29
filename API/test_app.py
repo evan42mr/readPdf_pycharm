@@ -100,9 +100,8 @@ def post_annual_numbers(table_year):
 
         new_content_table = functions.extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line)
 
-        line_num = 0
         functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, new_content_table,
-                              line_num, tab_end_line, title_indent_spaces)
+                              tab_end_line, title_indent_spaces)
 
         return "Upload of a file finished"
 
@@ -145,9 +144,8 @@ def post_annual(table_year):
         # Content table that contains only titles that can be identified in a text
         new_content_table = functions.extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line)
 
-        line_num = 0
         functions.find_titles(mydb, table_name, file_name_without_extension, text_without_pgbrk, new_content_table,
-                              line_num, tab_end_line, title_indent_spaces)
+                            tab_end_line, title_indent_spaces)
 
         return "Upload finished"
     except Exception as e:
