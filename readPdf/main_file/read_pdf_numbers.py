@@ -5,6 +5,11 @@ import pprint
 import string
 from difflib import SequenceMatcher
 
+"""
+It is a main code file that contains all the codes in a project to read pdf.   
+Script to read pdf files with line numbers and without them.
+"""
+
 pp = pprint.PrettyPrinter(indent=4)
 NEW_PAGE = '----------------> new page <---------------\n'
 
@@ -558,19 +563,6 @@ in the text. Otherwise bug leads to storing the text several times in a database
 """
 new_content_table = extract_existed_content_table(content_table, text_without_pgbrk, tab_end_line)
 
-# line_num = 0
+# Parameter used in a previous logic. Didn't modified the code in case it might not work correctly
+line_num = 0
 find_titles(text_without_pgbrk, new_content_table, 0, tab_end_line, title_indent_spaces)
-
-# lst_not_found_titles = []
-# while content_table:
-#     line_num = find_titles(text_without_pgbrk, content_table, line_num, tab_end_line, title_indent_spaces)
-#     if content_table:
-#         lst_not_found_titles.append(content_table.pop(0))
-
-# print('\n\n')
-# if not lst_not_found_titles:
-#     print("--------- Process is done ---------")
-# else:
-#     print("--------- Something went wrong! ---------")
-#     print(f"There are still {len(lst_not_found_titles)} element to search")
-#     print(lst_not_found_titles)

@@ -4,12 +4,19 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
 import app
+"""
+This script is used with sqlAlchemy, however I decided not use 
+sqlAlchemy package, because it wasn't flexible enough to implement
+the logic I wanted (dynamic table names)
+
+For sqlAlchemy package, it is hard to dynamically change table names
+rather model file should be structured for each table in a db 
+"""
 
 Base = declarative_base()
 class DsmeText(Base):
 
   __tablename__ = app.table_name
-  # __tablename__ = 'kogas_2449'
   id = Column(Integer, primary_key = True)
   par_text = Column(Text)
   is_title = Column(Boolean)
