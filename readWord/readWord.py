@@ -70,13 +70,13 @@ FILE_NAME = 'CN0810-DV-R0.docx'
 # FILE_NAME = 'LN0819-CL(A)-R0.docx'
 # FILE_NAME = 'TK0804-DV(A)-R0.docx'
 # FILE_NAME = 'LN1333-DV(A)-R0.docx'
-# doc = Document(FILE_NAME)
-# convertDocxToText(FILE_NAME)
+doc = Document(FILE_NAME)
+convertDocxToText(FILE_NAME)
 
-with open('CL_DV_categorization.json') as f:
-    CL_DV_category_dict = json.loads(f.read())
-
-pp.pprint(CL_DV_category_dict)
+# with open('CL_DV_categorization.json') as f:
+#     CL_DV_category_dict = json.loads(f.read())
+#
+# pp.pprint(CL_DV_category_dict)
 
 """
 for block in iter_block_items(doc):
@@ -89,7 +89,7 @@ for block in iter_block_items(doc):
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     row_data.append(paragraph.text)
-            print((row_data))
+            print((row_data))   
 """
 
 

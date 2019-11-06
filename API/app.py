@@ -115,7 +115,7 @@ def post_annual(table_year):
         mydb.close()
 
 @app.route('/read_annual/<string:table_year>/<string:table_name>',  methods=['GET'])
-@cache.cached(timeout=3600)
+@cache.cached(timeout=60)
 def read_annual(table_year, table_name):
     try:
         mydb = mariadb.connect(
@@ -148,7 +148,7 @@ def read_annual(table_year, table_name):
         mydb.close()
 
 @app.route('/readAll/<string:file_name>',  methods=['GET'])
-@cache.cached(timeout=3600)
+@cache.cached(timeout=60)
 def read_all(file_name):
     try:
         mydb = mariadb.connect(
